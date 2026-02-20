@@ -91,12 +91,31 @@ Create new Kiro-specific container variants (kiro-minimal, kiro-gastown) based o
 
 ### Task 3: Add runtime detection logic to launcher script
 
-- Add `detect_runtime()` function to `run-llm-cli.sh` that checks in order: podman → docker → machinectl → direct
-- Function returns runtime type and sets global `RUNTIME` variable
-- Add `check_kiro_config()` function to verify `~/.kiro/` exists or warn user
-- Add logic to determine if container tag is kiro-based (starts with "kiro-")
+**STATUS: COMPLETE**
 
-**Test**: Script correctly identifies available runtime on different systems
+**Solution**: Added runtime detection with fallback chain (podman → docker → machinectl → direct) and kiro config mounting support.
+
+**Key Learnings**:
+- Runtime detection happens early after argument parsing
+- PODMAN_ARGS renamed to RUNTIME_ARGS for runtime-agnostic operation
+- Kiro containers mount ~/.kiro config and ~/.aws credentials (read-only)
+- machinectl and direct execution marked as not yet implemented with clear error messages
+
+**Deliverables**:
+- ✅ `detect_runtime()` function - Checks for podman, docker, machinectl, direct in order
+- ✅ `check_kiro_config()` function - Verifies ~/.kiro exists or creates it with warning
+- ✅ `is_kiro_container()` function - Determines if tag starts with "kiro"
+- ✅ Runtime-agnostic build command - Uses detected runtime for image building
+- ✅ Runtime-agnostic run command - Uses detected runtime with error handling
+- ✅ Kiro config mounting - Mounts ~/.kiro and ~/.aws for kiro-* containers
+
+**Test**: Runtime detection correctly identifies podman, kiro config check works, syntax validation passes
+
+**Demo**: `bash -n run-llm-cli.sh` passes, runtime detection outputs "Detected runtime: podman"
+
+### Task 4: Add Docker-specific UID/GID handling
+
+- Add logic to detect if runtime is Docker (not Podman)
 
 **Demo**: Script prints detected runtime and proceeds with appropriate commands
 

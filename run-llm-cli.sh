@@ -29,6 +29,7 @@ set -e
 
 CONTAINER_TAG="minimal"
 CONTAINER_NAME="claude-code-$(date +%s)-$$"
+RUNTIME=""
 
 # Parse options
 MOUNT_GIT=false
@@ -36,6 +37,35 @@ SSH_KEYS=()
 SKIP_BUILD=false
 PRIVILEGED=false
 DIRS=()
+
+# Detect available container runtime
+detect_runtime() {
+    if command -v podman &> /dev/null; then
+        RUNTIME="podman"
+    elif command -v docker &> /dev/null; then
+        RUNTIME="docker"
+    elif command -v machinectl &> /dev/null; then
+        RUNTIME="machinectl"
+    else
+        RUNTIME="direct"
+    fi
+    echo "Detected runtime: $RUNTIME" >&2
+}
+
+# Check if Kiro config exists
+check_kiro_config() {
+    local kiro_config_dir="$HOME/.kiro"
+    if [ ! -d "$kiro_config_dir" ]; then
+        echo "Warning: $kiro_config_dir not found. You may need to run 'kiro-cli' to authenticate first." >&2
+        echo "Creating directory for Kiro config..." >&2
+        mkdir -p "$kiro_config_dir"
+    fi
+}
+
+# Check if container tag is kiro-based
+is_kiro_container() {
+    [[ "$CONTAINER_TAG" == kiro* ]]
+}
 
 show_help() {
     head -26 "$0" | tail -25 | sed 's/^# \?//'
@@ -115,6 +145,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Detect runtime early
+detect_runtime
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -133,12 +166,16 @@ fi
 
 # Build the image if needed
 if [ "$SKIP_BUILD" = false ]; then
-    echo "Building $IMAGE_NAME ..."
-    podman build -t "$IMAGE_NAME" "$CONTAINER_DIR"
+    if [ "$RUNTIME" = "podman" ] || [ "$RUNTIME" = "docker" ]; then
+        echo "Building $IMAGE_NAME ..."
+        $RUNTIME build -t "$IMAGE_NAME" "$CONTAINER_DIR"
+    else
+        echo "Skipping build - $RUNTIME does not support image building"
+    fi
 fi
 
-# Start building the podman run command
-PODMAN_ARGS=(
+# Start building the container run command
+RUNTIME_ARGS=(
     "run"
     "--rm"
     "-it"
@@ -153,11 +190,27 @@ PODMAN_ARGS=(
 # Add privileged mode if requested
 if [ "$PRIVILEGED" = true ]; then
     echo "Warning: Running in privileged mode - container has elevated host access"
-    PODMAN_ARGS+=("--privileged")
+    RUNTIME_ARGS+=("--privileged")
 fi
 
 # Mount credentials based on container type
-if [[ "$CONTAINER_TAG" == opencode* ]]; then
+if [[ "$CONTAINER_TAG" == kiro* ]]; then
+    # Kiro CLI stores config in ~/.kiro
+    check_kiro_config
+    KIRO_CONFIG_DIR="$HOME/.kiro"
+    echo "Mounting Kiro config from $KIRO_CONFIG_DIR"
+    RUNTIME_ARGS+=("-v" "$KIRO_CONFIG_DIR:/root/.kiro:z")
+    
+    # Pass AWS credentials if available
+    if [ -n "$AWS_PROFILE" ]; then
+        echo "Passing AWS_PROFILE environment variable"
+        RUNTIME_ARGS+=("-e" "AWS_PROFILE=$AWS_PROFILE")
+    fi
+    if [ -d "$HOME/.aws" ]; then
+        echo "Mounting AWS credentials from ~/.aws"
+        RUNTIME_ARGS+=("-v" "$HOME/.aws:/root/.aws:ro,z")
+    fi
+elif [[ "$CONTAINER_TAG" == opencode* ]]; then
     # OpenCode stores config in ~/.config/opencode and data in ~/.local/share/opencode
     OPENCODE_CONFIG_DIR="$HOME/.config/opencode"
     OPENCODE_DATA_DIR="$HOME/.local/share/opencode"
@@ -168,7 +221,7 @@ if [[ "$CONTAINER_TAG" == opencode* ]]; then
         echo "Creating OpenCode config directory..."
         mkdir -p "$OPENCODE_CONFIG_DIR"
     fi
-    PODMAN_ARGS+=("-v" "$OPENCODE_CONFIG_DIR:/root/.config/opencode:z")
+    RUNTIME_ARGS+=("-v" "$OPENCODE_CONFIG_DIR:/root/.config/opencode:z")
 
     if [ -d "$OPENCODE_DATA_DIR" ]; then
         echo "Mounting OpenCode data from $OPENCODE_DATA_DIR"
@@ -176,38 +229,38 @@ if [[ "$CONTAINER_TAG" == opencode* ]]; then
         echo "Creating OpenCode data directory..."
         mkdir -p "$OPENCODE_DATA_DIR"
     fi
-    PODMAN_ARGS+=("-v" "$OPENCODE_DATA_DIR:/root/.local/share/opencode:z")
+    RUNTIME_ARGS+=("-v" "$OPENCODE_DATA_DIR:/root/.local/share/opencode:z")
 
     # Pass common LLM API keys if set
     if [ -n "$ANTHROPIC_API_KEY" ]; then
         echo "Passing ANTHROPIC_API_KEY environment variable"
-        PODMAN_ARGS+=("-e" "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
+        RUNTIME_ARGS+=("-e" "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
     fi
     if [ -n "$OPENAI_API_KEY" ]; then
         echo "Passing OPENAI_API_KEY environment variable"
-        PODMAN_ARGS+=("-e" "OPENAI_API_KEY=$OPENAI_API_KEY")
+        RUNTIME_ARGS+=("-e" "OPENAI_API_KEY=$OPENAI_API_KEY")
     fi
     if [ -n "$GEMINI_API_KEY" ]; then
         echo "Passing GEMINI_API_KEY environment variable"
-        PODMAN_ARGS+=("-e" "GEMINI_API_KEY=$GEMINI_API_KEY")
+        RUNTIME_ARGS+=("-e" "GEMINI_API_KEY=$GEMINI_API_KEY")
     fi
 else
     # Claude Code stores config in ~/.claude
     CLAUDE_CONFIG_DIR="$HOME/.claude"
     if [ -d "$CLAUDE_CONFIG_DIR" ]; then
         echo "Mounting Anthropic credentials from $CLAUDE_CONFIG_DIR"
-        PODMAN_ARGS+=("-v" "$CLAUDE_CONFIG_DIR:/root/.claude:z")
+        RUNTIME_ARGS+=("-v" "$CLAUDE_CONFIG_DIR:/root/.claude:z")
     else
         echo "Warning: $CLAUDE_CONFIG_DIR not found. You may need to run 'claude' to authenticate first."
         echo "Creating directory for credentials..."
         mkdir -p "$CLAUDE_CONFIG_DIR"
-        PODMAN_ARGS+=("-v" "$CLAUDE_CONFIG_DIR:/root/.claude:z")
+        RUNTIME_ARGS+=("-v" "$CLAUDE_CONFIG_DIR:/root/.claude:z")
     fi
 
     # Also check for ANTHROPIC_API_KEY environment variable
     if [ -n "$ANTHROPIC_API_KEY" ]; then
         echo "Passing ANTHROPIC_API_KEY environment variable"
-        PODMAN_ARGS+=("-e" "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
+        RUNTIME_ARGS+=("-e" "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
     fi
 fi
 
@@ -215,14 +268,14 @@ fi
 if [ "$MOUNT_GIT" = true ]; then
     if [ -f "$HOME/.gitconfig" ]; then
         echo "Mounting git config"
-        PODMAN_ARGS+=("-v" "$HOME/.gitconfig:/root/.gitconfig:ro,z")
+        RUNTIME_ARGS+=("-v" "$HOME/.gitconfig:/root/.gitconfig:ro,z")
     else
         echo "Warning: ~/.gitconfig not found"
     fi
 
     if [ -f "$HOME/.git-credentials" ]; then
         echo "Mounting git credentials"
-        PODMAN_ARGS+=("-v" "$HOME/.git-credentials:/root/.git-credentials:ro,z")
+        RUNTIME_ARGS+=("-v" "$HOME/.git-credentials:/root/.git-credentials:ro,z")
     else
         echo "Warning: ~/.git-credentials not found (run 'git config --global credential.helper store' and authenticate once)"
     fi
@@ -237,7 +290,7 @@ if [ ${#SSH_KEYS[@]} -gt 0 ]; then
         if [ -f "$expanded_path" ]; then
             key_name="$(basename "$expanded_path")"
             echo "  Mounting $expanded_path -> /root/.ssh/$key_name"
-            PODMAN_ARGS+=("-v" "$expanded_path:/root/.ssh/$key_name:ro,z")
+            RUNTIME_ARGS+=("-v" "$expanded_path:/root/.ssh/$key_name:ro,z")
         else
             echo "Warning: SSH key not found: $key_path"
         fi
@@ -255,7 +308,7 @@ if [ ${#DIRS[@]} -gt 0 ]; then
         # Get the basename for the mount point
         dir_name="$(basename "$abs_dir")"
         echo "Mounting $abs_dir -> /workspace/$dir_name"
-        PODMAN_ARGS+=("-v" "$abs_dir:/workspace/$dir_name:z")
+        RUNTIME_ARGS+=("-v" "$abs_dir:/workspace/$dir_name:z")
     done
 else
     echo "No directories mounted. Use arguments to mount project directories."
@@ -263,7 +316,7 @@ else
 fi
 
 # Add the image name
-PODMAN_ARGS+=("$IMAGE_NAME")
+RUNTIME_ARGS+=("$IMAGE_NAME")
 
 echo ""
 echo "=========================================="
@@ -289,4 +342,13 @@ fi
 echo ""
 
 # Run the container
-exec podman "${PODMAN_ARGS[@]}"
+if [ "$RUNTIME" = "podman" ] || [ "$RUNTIME" = "docker" ]; then
+    exec $RUNTIME "${RUNTIME_ARGS[@]}"
+elif [ "$RUNTIME" = "machinectl" ]; then
+    echo "Error: machinectl runtime not yet implemented"
+    exit 1
+else
+    echo "Error: No suitable container runtime found (podman, docker, or machinectl)"
+    echo "Falling back to direct execution is not supported yet"
+    exit 1
+fi
