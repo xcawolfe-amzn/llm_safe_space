@@ -71,18 +71,17 @@ Create new Kiro-specific container variants (kiro-minimal, kiro-gastown) based o
 
 **STATUS: BLOCKED**
 
-**Blocker**: The go.mod file in the xcawolfe-amzn/gastown@kiro-cli branch still declares `module github.com/steveyegge/gastown` instead of `module github.com/xcawolfe-amzn/gastown`. The changes need to be committed and pushed to the remote branch before the Docker build can succeed.
+**Blocker**: The main branch has compilation errors. The `AgentPresetInfo` struct is missing fields that are being used in `internal/config/agents.go`:
+- PromptMode, ConfigDir, HooksProvider, HooksDir, HooksSettingsFile, HooksInformational, ReadyPromptPrefix, ReadyDelayMs, InstructionsFile
 
-**Action Required**: 
-1. Commit the go.mod changes in the gastown fork
-2. Push to the kiro-cli branch
-3. Wait for Go proxy to update (may take a few minutes)
-4. Retry the build
+**Attempted Solutions**:
+1. ❌ kiro-cli branch - go.mod not updated
+2. ❌ main branch - compilation errors (commit 4b7fd8ce4a0f)
 
-**Key Learning**: Go's module system requires the module path in go.mod to match the import path. When forking, you must update the module declaration and all internal imports to use the new path.
+**Action Required**: Fix compilation errors in main branch by adding missing fields to `AgentPresetInfo` struct or removing their usage.
 
 **Files Created**:
-- ✅ `containers/kiro-gastown/Containerfile` - Ready but blocked on upstream changes
+- ✅ `containers/kiro-gastown/Containerfile` - Ready but blocked
 - ✅ `containers/kiro-gastown/build.sh` - Build script ready
 
 **Next Steps After Unblocking**:

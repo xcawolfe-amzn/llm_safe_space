@@ -32,9 +32,9 @@ RUN ARCH=$(uname -m) && \
     chmod +x /usr/local/bin/kiro-cli && \
     rm -rf /tmp/kiro-cli.zip /tmp/kirocli
 
-# Install gt and bd from kiro-cli branch (PR #1278)
-RUN go install github.com/xcawolfe-amzn/gastown/cmd/gt@kiro-cli && \
-    go install github.com/xcawolfe-amzn/gastown/cmd/bd@kiro-cli
+# Install gt and bd from main branch (go.mod updated there)
+RUN go install github.com/xcawolfe-amzn/gastown/cmd/gt@main && \
+    go install github.com/xcawolfe-amzn/gastown/cmd/bd@main
 
 # Create non-root user (UID/GID will be overridden at runtime for Docker)
 RUN groupadd -g 1000 kirouser && \
