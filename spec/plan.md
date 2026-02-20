@@ -34,22 +34,28 @@ Create new Kiro-specific container variants (kiro-minimal, kiro-gastown) based o
 
 ### Task 1: Create kiro-minimal container with non-root user (Amazon Linux 2023 base)
 
-**STATUS: COMPLETE**
+**STATUS: IN PROGRESS - Fixing RPM Installation Issues**
 
-**Solution**: Built successfully with Docker. Podman had transaction verification issues with AL2023 base image, but Docker build completed without issues.
+**Current Issue**: Same RPM chown errors as kiro-gastown with tmux, git, and other packages
+
+**Solution Applied**: Add `--setopt=tsflags=nodocs` to dnf install command to skip documentation and reduce file conflicts
+
+**Previous Success**: Built successfully with Docker initially, but needs nodocs flag for reliability
 
 **Key Learnings**:
 - Amazon Linux 2023 base image has `curl-minimal` pre-installed; installing `curl` causes conflicts
 - Kiro CLI zip extracts to `kirocli/bin/kiro-cli` not `kiro-cli` directly
 - Docker requires explicit `-f Containerfile` flag; Podman auto-detects it
 - Build script supports `--use-docker` flag for runtime selection
+- RPM chown errors common in AL2023 containers, nodocs flag helps
 
 **Deliverables**:
 - ✅ `containers/kiro-minimal/Containerfile` - AL2023 base with tmux, git, unzip, kiro-cli
 - ✅ `containers/kiro-minimal/build.sh` - Build script with --use-docker flag
 - ✅ Non-root user `kirouser` (UID 1000, GID 1000)
-- ✅ Kiro CLI v1.26.2 installed and functional
-- ✅ Workspace directory at `/workspace` with correct permissions
+- ⏳ Testing build with nodocs flag
+
+**Next Step**: Rebuild and verify kiro-cli v1.26.2 works
 
 - Create `containers/kiro-minimal/Containerfile` based on `amazonlinux:2023`
 
