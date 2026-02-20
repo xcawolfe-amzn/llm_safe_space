@@ -1,0 +1,35 @@
+FROM amazonlinux:2023
+
+# Install essential tools
+RUN dnf install -y \
+    tmux \
+    git \
+    unzip \
+    && dnf clean all
+
+# Detect architecture and download Kiro CLI
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        KIRO_URL="https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        KIRO_URL="https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-aarch64-linux.zip"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L -o /tmp/kiro-cli.zip "$KIRO_URL" && \
+    unzip /tmp/kiro-cli.zip -d /tmp && \
+    mv /tmp/kirocli/bin/kiro-cli /usr/local/bin/kiro-cli && \
+    chmod +x /usr/local/bin/kiro-cli && \
+    rm -rf /tmp/kiro-cli.zip /tmp/kirocli
+
+# Create non-root user (UID/GID will be overridden at runtime for Docker)
+RUN groupadd -g 1000 kirouser && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash kirouser
+
+# Create workspace directory with appropriate permissions
+RUN mkdir -p /workspace && chown kirouser:kirouser /workspace
+
+WORKDIR /workspace
+USER kirouser
+
+CMD ["/bin/bash"]
