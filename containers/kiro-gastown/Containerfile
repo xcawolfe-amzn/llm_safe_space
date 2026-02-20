@@ -1,0 +1,54 @@
+FROM amazonlinux:2023
+
+# Install system dependencies
+RUN dnf install -y \
+    golang \
+    tmux \
+    git \
+    vim \
+    openssh-clients \
+    python3 \
+    python3-pip \
+    sqlite \
+    unzip \
+    && dnf clean all
+
+# Set Go environment
+ENV PATH="/root/go/bin:${PATH}" \
+    GOPATH="/root/go"
+
+# Detect architecture and download Kiro CLI
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        KIRO_URL="https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        KIRO_URL="https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-aarch64-linux.zip"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L -o /tmp/kiro-cli.zip "$KIRO_URL" && \
+    unzip /tmp/kiro-cli.zip -d /tmp && \
+    mv /tmp/kirocli/bin/kiro-cli /usr/local/bin/kiro-cli && \
+    chmod +x /usr/local/bin/kiro-cli && \
+    rm -rf /tmp/kiro-cli.zip /tmp/kirocli
+
+# Install gt and bd from kiro-cli branch (PR #1278)
+RUN go install github.com/xcawolfe-amzn/gastown/cmd/gt@kiro-cli && \
+    go install github.com/xcawolfe-amzn/gastown/cmd/bd@kiro-cli
+
+# Create non-root user (UID/GID will be overridden at runtime for Docker)
+RUN groupadd -g 1000 kirouser && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash kirouser
+
+# Copy Go binaries to system path for kirouser access
+RUN cp /root/go/bin/gt /usr/local/bin/gt && \
+    cp /root/go/bin/bd /usr/local/bin/bd && \
+    chmod +x /usr/local/bin/gt /usr/local/bin/bd
+
+# Create workspace directory with appropriate permissions
+RUN mkdir -p /workspace && chown kirouser:kirouser /workspace
+
+WORKDIR /workspace
+USER kirouser
+
+CMD ["/bin/bash"]

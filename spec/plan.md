@@ -69,20 +69,26 @@ Create new Kiro-specific container variants (kiro-minimal, kiro-gastown) based o
 
 ### Task 2: Create kiro-gastown container with GasTown tools (Amazon Linux 2023 base)
 
-- Create `containers/kiro-gastown/Containerfile` based on `amazonlinux:2023`
-- Install system dependencies via dnf: golang, tmux, git, curl, vim, openssh-clients, python3, python3-pip, sqlite, unzip
-- Download and install Kiro CLI binary (same architecture detection as Task 1)
-- Set Go environment variables (PATH, GOPATH)
-- Install gt and bd from xcawolfe-amzn/gastown@kiro-cli branch (PR #1278):
-  - `go install github.com/xcawolfe-amzn/gastown/cmd/gt@kiro-cli`
-  - `go install github.com/xcawolfe-amzn/gastown/cmd/bd@kiro-cli`
-- Create non-root user `kirouser` with UID 1000, GID 1000
-- Set workspace permissions for kirouser
-- Create `containers/kiro-gastown/build.sh` script
+**STATUS: BLOCKED**
 
-**Test**: Build succeeds, all three binaries (kiro-cli, gt, bd) present with Kiro integration from PR #1278, Go/Python available
+**Blocker**: The go.mod file in the xcawolfe-amzn/gastown@kiro-cli branch still declares `module github.com/steveyegge/gastown` instead of `module github.com/xcawolfe-amzn/gastown`. The changes need to be committed and pushed to the remote branch before the Docker build can succeed.
 
-**Demo**: Container builds and includes full GasTown toolchain with Kiro CLI integration on AL2023 base
+**Action Required**: 
+1. Commit the go.mod changes in the gastown fork
+2. Push to the kiro-cli branch
+3. Wait for Go proxy to update (may take a few minutes)
+4. Retry the build
+
+**Key Learning**: Go's module system requires the module path in go.mod to match the import path. When forking, you must update the module declaration and all internal imports to use the new path.
+
+**Files Created**:
+- ✅ `containers/kiro-gastown/Containerfile` - Ready but blocked on upstream changes
+- ✅ `containers/kiro-gastown/build.sh` - Build script ready
+
+**Next Steps After Unblocking**:
+- Rebuild with `./containers/kiro-gastown/build.sh --use-docker`
+- Verify gt, bd, and kiro-cli binaries are present
+- Test container functionality
 
 ### Task 3: Add runtime detection logic to launcher script
 
