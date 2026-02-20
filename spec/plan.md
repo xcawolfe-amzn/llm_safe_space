@@ -69,25 +69,30 @@ Create new Kiro-specific container variants (kiro-minimal, kiro-gastown) based o
 
 ### Task 2: Create kiro-gastown container with GasTown tools (Amazon Linux 2023 base)
 
-**STATUS: BLOCKED**
+**STATUS: BLOCKED - RPM Installation Failures**
 
-**Blocker**: The main branch has compilation errors. The `AgentPresetInfo` struct is missing fields that are being used in `internal/config/agents.go`:
-- PromptMode, ConfigDir, HooksProvider, HooksDir, HooksSettingsFile, HooksInformational, ReadyPromptPrefix, ReadyDelayMs, InstructionsFile
+**Current Blocker**: Amazon Linux 2023 RPM package installation failures during container build:
+- `libutempter-1.2.1-4.amzn2023.0.2.x86_64` - chown failed: Directory not empty
+- `util-linux-2.37.4-1.amzn2023.0.4.x86_64` - chown failed: No data available  
+- `openssh-8.7p1-8.amzn2023.0.15.x86_64` - chown failed: No data available
 
-**Attempted Solutions**:
-1. ❌ kiro-cli branch - go.mod not updated
-2. ❌ main branch - compilation errors (commit 4b7fd8ce4a0f)
+**Root Cause**: RPM chown failures during package installation in AL2023 containers. The errors occur with packages that have setuid/setgid binaries or special file permissions (libutempter, util-linux, openssh).
 
-**Action Required**: Fix compilation errors in main branch by adding missing fields to `AgentPresetInfo` struct or removing their usage.
+**Solution Applied**: 
+1. Use `vim-minimal` instead of `vim` (lighter, fewer permission issues)
+2. Add `--setopt=tsflags=nodocs` to skip documentation installation (reduces file conflicts)
+3. Remove `python3` from install list (already in base image)
+
+**Previous Blocker (Resolved)**: GasTown compilation errors - main branch has missing fields in `AgentPresetInfo` struct
 
 **Files Created**:
-- ✅ `containers/kiro-gastown/Containerfile` - Ready but blocked
+- ✅ `containers/kiro-gastown/Containerfile` - Ready but blocked by RPM issues
 - ✅ `containers/kiro-gastown/build.sh` - Build script ready
 
-**Next Steps After Unblocking**:
-- Rebuild with `./containers/kiro-gastown/build.sh --use-docker`
-- Verify gt, bd, and kiro-cli binaries are present
-- Test container functionality
+**Next Steps**:
+1. Try dnf install with `--setopt=tsflags=nodocs --nobest --skip-broken`
+2. If still failing, consider Debian base for kiro-gastown (Ubuntu 24.04 or Debian bookworm)
+3. After successful build, verify gt, bd, and kiro-cli binaries are present
 
 ### Task 3: Add runtime detection logic to launcher script
 
