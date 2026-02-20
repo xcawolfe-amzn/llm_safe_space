@@ -192,11 +192,14 @@ RUNTIME_ARGS=(
   "-it"
   "--name" "$CONTAINER_NAME"
   "--hostname" "claude-code"
-  # Run as root inside the container
+  # Run as root inside the container (except for kiro which needs host user for .kiro access)
   "--user" "root"
   # Let Claude Code know it's running in a sandbox/dev container
   "-e" "IS_SANDBOX=1"
 )
+
+# For Kiro containers, keep running as root to access mounted directories
+# (The container's kirouser is just for the default CMD, we override with root)
 
 # Add privileged mode if requested
 if [ "$PRIVILEGED" = true ]; then
@@ -333,6 +336,8 @@ echo ""
 echo "=========================================="
 if [[ "$CONTAINER_TAG" == opencode* ]]; then
   echo "Starting OpenCode container ($CONTAINER_TAG)"
+elif [[ "$CONTAINER_TAG" == kiro* ]]; then
+  echo "Starting Kiro CLI container ($CONTAINER_TAG)"
 else
   echo "Starting Claude Code container ($CONTAINER_TAG)"
 fi
@@ -341,6 +346,8 @@ echo ""
 echo "Inside the container:"
 if [[ "$CONTAINER_TAG" == opencode* ]]; then
   echo "  - Run 'opencode' to start OpenCode"
+elif [[ "$CONTAINER_TAG" == kiro* ]]; then
+  echo "  - Run 'kiro-cli chat' to start Kiro CLI"
 else
   echo "  - Run 'claude' to start Claude Code"
 fi

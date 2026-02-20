@@ -1,7 +1,12 @@
 FROM amazonlinux:2023
 
 # Install essential tools
-RUN dnf install -y --setopt=tsflags=nonoscripts \
+RUN dnf install -y --setopt=tsflags=noscripts \
+    shadow-utils \
+    ca-certificates \
+    sqlite \
+    && groupadd -f ssh_keys && \
+    dnf install -y --setopt=tsflags=noscripts \
     tmux \
     git \
     unzip \
@@ -18,12 +23,12 @@ RUN ARCH=$(uname -m) && \
     fi && \
     curl -L -o /tmp/kiro-cli.zip "$KIRO_URL" && \
     unzip /tmp/kiro-cli.zip -d /tmp && \
-    mv /tmp/kirocli/bin/kiro-cli /usr/local/bin/kiro-cli && \
-    chmod +x /usr/local/bin/kiro-cli && \
+    cp -r /tmp/kirocli/bin/* /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kiro* && \
     rm -rf /tmp/kiro-cli.zip /tmp/kirocli
 
 # Create non-root user (UID/GID will be overridden at runtime for Docker)
-RUN groupadd -g 1000 kirouser && \
+RUN groupadd -f -g 1000 kirouser && \
     useradd -u 1000 -g 1000 -m -s /bin/bash kirouser
 
 # Create workspace directory with appropriate permissions
