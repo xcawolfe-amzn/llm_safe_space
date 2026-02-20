@@ -60,12 +60,13 @@ kiro-cli     # for kiro-minimal/kiro-gastown
 ./run-llm-cli.sh [options] [directories...]
 
 Options:
-  -h, --help          Show help message with credential instructions
-  -t, --tag TAG       Container flavor: minimal, gastown, opencode, opencode-gastown, kiro-minimal, kiro-gastown (default: minimal)
-  -g, --git           Mount git credentials (~/.gitconfig and ~/.git-credentials)
-  -s, --ssh PATHS     Mount specific SSH key files (comma-separated paths)
-  -n, --no-build      Skip rebuilding the container image
-  -p, --privileged    Run container in privileged mode (use with caution)
+  -h, --help                    Show help message with credential instructions
+  -t, --tag TAG                 Container flavor: minimal, gastown, opencode, opencode-gastown, kiro-minimal, kiro-gastown (default: minimal)
+  -r, --container-runtime NAME  Specify container runtime: podman, docker (default: auto-detect)
+  -g, --git                     Mount git credentials (~/.gitconfig and ~/.git-credentials)
+  -s, --ssh PATHS               Mount specific SSH key files (comma-separated paths)
+  -n, --no-build                Skip rebuilding the container image
+  -p, --privileged              Run container in privileged mode (use with caution)
 
 Arguments:
   directories...      Directories to mount into /workspace (space-separated)
@@ -103,6 +104,10 @@ Arguments:
 
 # Kiro + GasTown
 ./run-llm-cli.sh -t kiro-gastown ~/projects/myapp
+
+# Specify container runtime explicitly
+./run-llm-cli.sh -r docker ~/projects/myapp
+./run-llm-cli.sh -r podman -t gastown ~/projects/myapp
 
 # Multiple project directories
 ./run-llm-cli.sh ~/proj1 ~/proj2

@@ -5,12 +5,13 @@
 # Usage: ./run-claude-code.sh [options] [directories...]
 #
 # Options:
-#   -h, --help          Show this help message
-#   -t, --tag TAG       Container flavor: minimal, gastown, opencode, opencode-gastown (default: minimal)
-#   -g, --git           Mount git credentials (~/.gitconfig and ~/.git-credentials)
-#   -s, --ssh PATHS     Mount specific SSH key files (comma-separated paths)
-#   -n, --no-build      Skip building the container image
-#   -p, --privileged    Run container in privileged mode (use with caution)
+#   -h, --help                    Show this help message
+#   -t, --tag TAG                 Container flavor: minimal, gastown, opencode, opencode-gastown (default: minimal)
+#   -g, --git                     Mount git credentials (~/.gitconfig and ~/.git-credentials)
+#   -s, --ssh PATHS               Mount specific SSH key files (comma-separated paths)
+#   -n, --no-build                Skip building the container image
+#   -p, --privileged              Run container in privileged mode (use with caution)
+#   -r, --container-runtime NAME  Specify container runtime: podman, docker (default: auto-detect)
 #
 # Arguments:
 #   directories...      Directories to mount into /workspace (space-separated)
@@ -29,7 +30,7 @@ set -e
 
 CONTAINER_TAG="minimal"
 CONTAINER_NAME="claude-code-$(date +%s)-$$"
-RUNTIME="docker"
+RUNTIME=""
 
 # Parse options
 MOUNT_GIT=false
@@ -40,6 +41,17 @@ DIRS=()
 
 # Detect available container runtime
 detect_runtime() {
+  if [ -n "$RUNTIME" ]; then
+    # Runtime explicitly specified, verify it exists
+    if ! command -v "$RUNTIME" &>/dev/null; then
+      echo "Error: specified runtime '$RUNTIME' not found" >&2
+      exit 1
+    fi
+    echo "Using specified runtime: $RUNTIME" >&2
+    return
+  fi
+  
+  # Auto-detect
   RUNTIME='docker'
   # if command -v podman &>/dev/null; then
   #   RUNTIME="podman"
