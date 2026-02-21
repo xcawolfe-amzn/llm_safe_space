@@ -227,6 +227,16 @@ if [[ "$CONTAINER_TAG" == kiro* ]]; then
   echo "Mounting Kiro config from $KIRO_CONFIG_DIR"
   RUNTIME_ARGS+=("-v" "$KIRO_CONFIG_DIR:/root/.kiro:z")
 
+  # Mount Kiro data directory
+  KIRO_DATA_DIR="$HOME/.local/share/kiro"
+  if [ -d "$KIRO_DATA_DIR" ]; then
+    echo "Mounting Kiro data from $KIRO_DATA_DIR"
+  else
+    echo "Creating Kiro data directory..."
+    mkdir -p "$KIRO_DATA_DIR"
+  fi
+  RUNTIME_ARGS+=("-v" "$KIRO_DATA_DIR:/root/.local/share/kiro:z")
+
   # Pass AWS credentials if available
   if [ -n "$AWS_PROFILE" ]; then
     echo "Passing AWS_PROFILE environment variable"

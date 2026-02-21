@@ -10,6 +10,6 @@ if [[ "$1" == "--use-docker" ]]; then
 fi
 
 echo "Building $IMAGE_NAME with $RUNTIME..."
-$RUNTIME build --cap-add=CAP_CHOWN -f "$SCRIPT_DIR/Containerfile" -t "$IMAGE_NAME" "$SCRIPT_DIR"
+$RUNTIME build -f "$SCRIPT_DIR/Containerfile" -t "$IMAGE_NAME" "$SCRIPT_DIR"
 
 echo "Build complete: $IMAGE_NAME"
