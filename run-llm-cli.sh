@@ -228,7 +228,7 @@ if [[ "$CONTAINER_TAG" == kiro* ]]; then
   RUNTIME_ARGS+=("-v" "$KIRO_CONFIG_DIR:/root/.kiro:z")
 
   # Mount Kiro data directory
-  KIRO_DATA_DIR="$HOME/.local/share/kiro"
+  KIRO_DATA_DIR="$HOME/.local/share/kiro-cli"
   if [ -d "$KIRO_DATA_DIR" ]; then
     echo "Mounting Kiro data from $KIRO_DATA_DIR"
   else
